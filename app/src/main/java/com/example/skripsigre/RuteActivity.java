@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.util.Log;
 
 import com.example.skripsigre.api.ApiClient;
+import com.example.skripsigre.api.ApiInterface;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -16,9 +17,9 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
 
-import com.example.skripsigre.api.RoutesApi;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.gson.Gson;
 
 import java.util.ArrayList;
@@ -46,20 +47,27 @@ public class RuteActivity extends FragmentActivity implements OnMapReadyCallback
      */
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        List<Jalur> listJalur = new ArrayList<>();
-        Gson gson = new Gson();
-        Retrofit retrofit = ApiClient.getClient();
+        // Default dummy marker location
+        LatLng cimahi = new LatLng(-6.8799376, 107.5611123);
 
-        RoutesApi routesApi = retrofit.create(RoutesApi.class);
-        Call<List<Routes>> call = routesApi.getRoutes();
+        // Get coordinates from database
+        Retrofit retrofit = ApiClient.getClient();
+        ApiInterface apiInterface = retrofit.create(ApiInterface.class);
+        Call<List<Routes>> call = apiInterface.getRoutes();
         call.enqueue(new Callback<List<Routes>>() {
             @Override
             public void onResponse(Call<List<Routes>> call, Response<List<Routes>> response) {
                 if (!response.isSuccessful()) {
+                    // Log error
                     Log.e("Error", String.valueOf(response.code()));
+
+                    // Add dummy marker and center map
+                    googleMap.addMarker(new MarkerOptions().position(cimahi).title("rmah greg"));
                 } else {
                     // Add all routes to listJalur
+                    Gson gson = new Gson();
                     List<Routes> routes = response.body();
+                    List<Jalur> listJalur = new ArrayList<>();
                     for (Routes route : routes) {
                         Jalur jalur = gson.fromJson(route.getJalur(), Jalur.class);
                         listJalur.add(jalur);
@@ -68,23 +76,28 @@ public class RuteActivity extends FragmentActivity implements OnMapReadyCallback
                     // Display all routes
                     for (Jalur jalur : listJalur) {
                         List<List<Double>> coordinates = jalur.getCoordinates();
-                        for (List<Double> coordinate : coordinates) {
-                            System.out.println(coordinate);
-                            LatLng location = new LatLng(coordinate.get(0), coordinate.get(1));
-                            googleMap.addMarker(new MarkerOptions().position(location));
+                        List<LatLng> coordList = new ArrayList<>();
+                        for (int i = 0; i < coordinates.size(); i++) {
+                            List<Double> coordinate = coordinates.get(i);
+                            LatLng latLngCoordinate = new LatLng(coordinate.get(0), coordinate.get(1));
+                            coordList.add(latLngCoordinate);
+                            if (i == 0 || i == coordinates.size()) {
+                                googleMap.addMarker(new MarkerOptions().position(latLngCoordinate));
+                            }
                         }
+                        googleMap.addPolyline(new PolylineOptions().addAll(coordList));
                     }
-                    LatLng cimahi = new LatLng(-6.8799376, 107.5611123);
-                    googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(cimahi, 13));
                 }
+                // Center map
+                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(cimahi, 13));
             }
 
             @Override
             public void onFailure(Call<List<Routes>> call, Throwable t) {
+                // Log error
                 Log.e("Error", t.getMessage());
 
-                // Add a marker in Sydney and move the camera
-                LatLng cimahi = new LatLng(-6.8799376, 107.5611123);
+                // Add dummy marker and center map
                 googleMap.addMarker(new MarkerOptions().position(cimahi).title("rmah greg"));
                 googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(cimahi, 13));
             }

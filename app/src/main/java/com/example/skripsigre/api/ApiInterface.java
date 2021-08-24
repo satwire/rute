@@ -26,4 +26,7 @@ public interface ApiInterface {
             @Field("name") String name
 
     );
+
+    @GET("routes.php")
+    Call<List<Routes>> getRoutes();
 }
